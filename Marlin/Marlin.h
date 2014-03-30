@@ -179,6 +179,8 @@ void calculate_delta(float cartesian[3]);
 extern float delta[3];
 #endif
 void prepare_move();
+void prepare_scara_move();
+void prepare_cartesian_move();
 void kill();
 void Stop();
 

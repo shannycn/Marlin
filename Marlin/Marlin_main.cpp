@@ -61,7 +61,7 @@
 #include <SPI.h>
 #endif
 
-#define VERSION_STRING  "1.0.0"
+#define VERSION_STRING  "1.0.0 SCARA"
 
 // look here for descriptions of G-codes: http://linuxcnc.org/handbook/gcode/g-code.html
 // http://objects.reprap.org/wiki/Mendel_User_Manual:_RepRapGCodes
@@ -80,7 +80,10 @@
 // G30 - Single Z Probe, probes bed at current XY location.
 // G90 - Use Absolute Coordinates
 // G91 - Use Relative Coordinates
-// G92 - Set current position to coordinates given
+//// G92 - Set current position to coordinates given
+// G92 - Set current position to cordinates given (in raw SCARA coordinates)
+// G93 - SCARA coordinate mapping on (default)
+// G94 - SCARA coordinate mapping (and soft limits) off (raw mode)
 
 // M Codes
 // M0   - Unconditional stop - Wait for user to press a button on the LCD (Only if ULTRA_LCD is enabled)
@@ -186,6 +189,7 @@ CardReader card;
 #endif
 float homing_feedrate[] = HOMING_FEEDRATE;
 bool axis_relative_modes[] = AXIS_RELATIVE_MODES;
+bool scara_raw_mode = false;
 int feedmultiply=100; //100->1 200->2
 int saved_feedmultiply;
 int extrudemultiply=100; //100->1 200->2
@@ -206,6 +210,7 @@ float volumetric_multiplier[EXTRUDERS] = {1.0
   #endif
 };
 float current_position[NUM_AXIS] = { 0.0, 0.0, 0.0, 0.0 };
+float current_scara_x_position = 0.0, current_scara_y_position = 0.0;
 float add_homeing[3]={0,0,0};
 #ifdef DELTA
 float endstop_adj[3]={0,0,0};
@@ -1609,12 +1614,42 @@ void process_commands()
              plan_set_e_position(current_position[E_AXIS]);
            }
            else {
-             current_position[i] = code_value()+add_homeing[i];
-             plan_set_position(current_position[X_AXIS], current_position[Y_AXIS], current_position[Z_AXIS], current_position[E_AXIS]);
+//             current_position[i] = code_value()+add_homeing[i];
+//             plan_set_position(current_position[X_AXIS], current_position[Y_AXIS], current_position[Z_AXIS], current_position[E_AXIS]);
+			/* If we are in raw SCARA mode, don't use the cartesian
+		   coordinates from current_position array to set the position.
+		   Instead use the stored current SCARA X and Y values. 
+		   Otherwise the cartesian coordinates will end up being
+		   copied into the SCARA axis position. */
+			if (scara_raw_mode) {
+			  if (i == X_AXIS) {
+			current_scara_x_position = code_value()+add_homeing[i];  
+			  } else if (i == Y_AXIS) {
+			current_scara_y_position = code_value()+add_homeing[i];  
+			  } else {
+			current_position[i] = code_value()+add_homeing[i];
+			  }
+			  plan_set_position(current_scara_x_position, 
+					current_scara_y_position, 
+					current_position[Z_AXIS], 
+					current_position[E_AXIS]);
+			} else {
+			  current_position[i] = code_value()+add_homeing[i];  
+			  plan_set_position(current_position[X_AXIS], 
+					current_position[Y_AXIS], 
+					current_position[Z_AXIS], 
+					current_position[E_AXIS]);
+			}
            }
         }
       }
       break;
+      case 93: // G93
+        scara_raw_mode = false;
+        break;
+      case 94: // G94
+        scara_raw_mode = true;
+        break;
     }
   }
 
@@ -3189,7 +3224,124 @@ void calculate_delta(float cartesian[3])
 }
 #endif
 
+/******************************************************************************/
 void prepare_move()
+{
+	if (scara_raw_mode) {
+	  prepare_cartesian_move();
+	} else {
+	  prepare_scara_move();
+	}
+}
+
+/* Parallel SCARA kinematics. 
+
+   The firmware's internal X and Y coordinates are the arm rotations
+   in degrees, not the cartesian position of the toolhead. In raw
+   mode, the G0/G1 commands will drive the arms to the desired
+   rotation. (Warning! this can cause the arms to collide) With raw
+   mode off, the given coordinates will be interpreted as the
+   cartesian destination point and the prepare_move function will
+   convert them to SCARA arm rotations before queuing them for the
+   planner.
+
+   For non-printing moves and short moves, we can just enqueue the
+   final arm rotation.  However, for long printing moves, driving the
+   rotations linearly to final values may result in a curved toolhead
+   path. For example, when the rotation of one of the arms happens to
+   be same at the begin and end positions, the trajectory will always
+   be curved. This is fine for non-printing moves and saves effort
+   there, but will result in a wonky print if used for all moves.
+   
+   Strategies for correcting for the curved trajectory:
+
+   1. Split the long move into smaller segments based on the total
+   length of the move (in cartesian) (Easiest to implement, does this now)
+
+   2. Calculate the interpolated midpoint of linearly running the arm
+   rotations, transform it back to cartesian and check the
+   deviation. If it's over a configured threshold, split the move into
+   two segments do the same to those recursively. (Fancy, doesn't
+   do unnecessary splits.)
+*/
+
+/* Calculate the arm first segment rotation to reach the target
+   point. Returns clockwise rotation away from the Y-axis in
+   degrees. */
+float calculate_arm_rotation(float x, float y, int arm_num)
+{
+  float rot;
+
+  // Calculate the first arm segment rotation away from the line between the 
+  // base axis and target point.
+  rot = acos((SCARA_SEG1_LEN*SCARA_SEG1_LEN - SCARA_SEG2_LEN*SCARA_SEG2_LEN 
+              + (x*x + y*y)) / (2 * sqrt(x*x + y*y)) 
+             / SCARA_SEG1_LEN) * 180 / M_PI;
+
+  // From the relative rotation, calculate absolute rotation, taking the
+  // arm number into account to get the elbow rotation on the correct side.
+  return -((arm_num == 1) 
+           ? (atan2(y, x) * 180 / M_PI + rot - 90)
+           : (atan2(y, x) * 180 / M_PI - rot - 90));
+}
+
+/* Split the move into small segments and convert each to SCARA coordinates
+   individually. Segment maximum length is defined in Configuration.h */
+void prepare_scara_move()
+{
+  float arm1, arm2, distXY, deltaX, deltaY, deltaZ, deltaE,
+    steplen, x, y, z, step;
+  int steps, i;
+
+  clamp_to_software_endstops(destination);
+
+  previous_millis_cmd = millis(); 
+  // Do not use feedmultiply for E or Z only moves
+  if( (current_position[X_AXIS] == destination [X_AXIS]) && (current_position[Y_AXIS] == destination [Y_AXIS])) {
+      plan_buffer_line(destination[X_AXIS], destination[Y_AXIS], destination[Z_AXIS], destination[E_AXIS], feedrate/60, active_extruder);
+  previous_millis_cmd = millis();
+
+  deltaX = destination[X_AXIS] - current_position[X_AXIS];
+  deltaY = destination[Y_AXIS] - current_position[Y_AXIS];
+  deltaZ = destination[Z_AXIS] - current_position[Z_AXIS];
+  deltaE = destination[E_AXIS] - current_position[E_AXIS];
+  
+  distXY = sqrt(deltaX*deltaX + deltaY*deltaY);
+
+  steps = ceil(distXY / SCARA_MOVE_APPROX_LEN);
+  if (steps < 1)
+    steps = 1;
+
+  //SERIAL_ECHOPGM("distXY="); SERIAL_ECHOLN(distXY);
+  //SERIAL_ECHOPGM("steps="); SERIAL_ECHOLN(steps);
+
+  for (i = 1; i <= steps; i++) {
+    step = (float)i / ((float)steps);
+    x = current_position[X_AXIS] + deltaX * step;
+    y = current_position[Y_AXIS] + deltaY * step;
+    z = current_position[Z_AXIS] + deltaZ * step;
+    
+    arm1 = calculate_arm_rotation(x - SCARA_ARM1_X, y - SCARA_ARM1_Y, 1);
+    arm2 = calculate_arm_rotation(x - SCARA_ARM2_X, y - SCARA_ARM2_Y, 2);
+
+    //SERIAL_ECHOPGM("step="); SERIAL_ECHOLN(step);
+    //SERIAL_ECHOPGM("arm1="); SERIAL_ECHOLN(arm1);
+    //SERIAL_ECHOPGM("arm2="); SERIAL_ECHOLN(arm2);
+    
+    plan_buffer_line(arm1, arm2, current_position[Z_AXIS] + deltaZ * step, 
+                     current_position[E_AXIS] + deltaE * step, 
+                     feedrate*feedmultiply/60/100.0, active_extruder);
+  }
+  
+  for(int8_t i=0; i < NUM_AXIS; i++) {
+    current_position[i] = destination[i];
+  }
+  current_scara_x_position = arm1;
+  current_scara_y_position = arm2;
+}
+/******************************************************************************/
+
+void prepare_cartesian_move()
 {
   clamp_to_software_endstops(destination);
 
