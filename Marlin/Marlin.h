@@ -142,6 +142,20 @@ void manage_inactivity();
   #define disable_z() ;
 #endif
 
+#if defined(W_ENABLE_PIN) && W_ENABLE_PIN > -1
+  #ifdef W_DUAL_STEPPER_DRIVERS
+    #define  enable_w() { WRITE(W_ENABLE_PIN, W_ENABLE_ON); WRITE(W2_ENABLE_PIN, W_ENABLE_ON); }
+    #define disable_w() { WRITE(W_ENABLE_PIN,!W_ENABLE_ON); WRITE(W2_ENABLE_PIN,!W_ENABLE_ON); axis_known_position[W_AXIS] = false; }
+  #else
+    #define  enable_w() WRITE(W_ENABLE_PIN, W_ENABLE_ON)
+    #define disable_w() { WRITE(W_ENABLE_PIN,!W_ENABLE_ON); axis_known_position[W_AXIS] = false; }
+  #endif
+#else
+  #define enable_w() ;
+  #define disable_w() ;
+#endif
+
+#if 0
 #if defined(E0_ENABLE_PIN) && (E0_ENABLE_PIN > -1)
   #define enable_e0() WRITE(E0_ENABLE_PIN, E_ENABLE_ON)
   #define disable_e0() WRITE(E0_ENABLE_PIN,!E_ENABLE_ON)
@@ -165,9 +179,9 @@ void manage_inactivity();
   #define enable_e2()  /* nothing */
   #define disable_e2() /* nothing */
 #endif
+#endif
 
-
-enum AxisEnum {X_AXIS=0, Y_AXIS=1, Z_AXIS=2, E_AXIS=3};
+enum AxisEnum {X_AXIS=0, Y_AXIS=1, Z_AXIS=2, W_AXIS=3/*, E_AXIS=3*/};
 
 
 void FlushSerialRequestResend();
@@ -189,7 +203,7 @@ bool IsStopped();
 void enquecommand(const char *cmd); //put an ASCII command at the end of the current buffer.
 void enquecommand_P(const char *cmd); //put an ASCII command at the end of the current buffer, read from flash
 void prepare_arc_move(char isclockwise);
-void clamp_to_software_endstops(float target[3]);
+void clamp_to_software_endstops(float target[4]);
 
 void refresh_cmd_timeout(void);
 

@@ -34,7 +34,7 @@
 // the source g-code and may never actually be reached if acceleration management is active.
 typedef struct {
   // Fields used by the bresenham algorithm for tracing the line
-  long steps_x, steps_y, steps_z, steps_e;  // Step count along each axis
+  long steps_x, steps_y, steps_z, steps_w;  // Step count along each axis
   unsigned long step_event_count;           // The number of step events required to complete this block
   long accelerate_until;                    // The index of the step event on which to stop acceleration
   long decelerate_after;                    // The index of the step event on which to start decelerating
@@ -95,10 +95,11 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
 #ifdef ENABLE_AUTO_BED_LEVELING
 void plan_set_position(float x, float y, float z, const float &e);
 #else
-void plan_set_position(const float &x, const float &y, const float &z, const float &e);
+void plan_set_position(const float &x, const float &y, const float &z, const float &w);
 #endif // ENABLE_AUTO_BED_LEVELING
 
-void plan_set_e_position(const float &e);
+void plan_set_w_position(const float &w);
+//void plan_set_e_position(const float &e);
 
 
 

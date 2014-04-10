@@ -28,6 +28,7 @@
 
  */
 
+#ifdef SUPPORT_TEMPERATURE
 
 #include "Marlin.h"
 #include "ultralcd.h"
@@ -1320,5 +1321,5 @@ float unscalePID_d(float d)
 }
 
 #endif //PIDTEMP
-
+#endif
 

@@ -12,6 +12,8 @@
 // example_configurations/delta directory.
 //
 
+#define SCARA_MODE
+#define SUPPORT_TEMPERATURE
 // User-specified version info of this build to display in [Pronterface, etc] terminal window during
 // startup. Implementation of an idea by Prof Braino to inform user that any changes made to this
 // build by the user have been successfully uploaded into firmware.
@@ -83,7 +85,7 @@
 // #define MACHINE_UUID "00000000-0000-0000-0000-000000000000"
 
 // This defines the number of extruders
-#define EXTRUDERS 1
+#define EXTRUDERS 0
 
 //// The following define selects which power supply you have. Please choose the one that matches your setup
 // 1 = ATX
@@ -252,6 +254,7 @@
 //===========================================================================
 
 // Uncomment the following line to enable CoreXY kinematics
+// http://www.corexy.com/theory.html
 // #define COREXY
 
 // coarse Endstop Settings
@@ -280,9 +283,11 @@
 const bool X_MIN_ENDSTOP_INVERTING = true; // set to true to invert the logic of the endstop.
 const bool Y_MIN_ENDSTOP_INVERTING = true; // set to true to invert the logic of the endstop.
 const bool Z_MIN_ENDSTOP_INVERTING = true; // set to true to invert the logic of the endstop.
+const bool W_MIN_ENDSTOP_INVERTING = true; // set to true to invert the logic of the endstop.
 const bool X_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of the endstop.
 const bool Y_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of the endstop.
 const bool Z_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of the endstop.
+const bool W_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of the endstop.
 //#define DISABLE_MAX_ENDSTOPS
 //#define DISABLE_MIN_ENDSTOPS
 
@@ -296,16 +301,19 @@ const bool Z_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
 #define Y_ENABLE_ON 0
 #define Z_ENABLE_ON 0
 #define E_ENABLE_ON 0 // For all extruders
+#define W_ENABLE_ON 0
 
 // Disables axis when it's not being used.
 #define DISABLE_X false
 #define DISABLE_Y false
 #define DISABLE_Z false
 #define DISABLE_E false // For all extruders
+#define DISABLE_W false
 
 #define INVERT_X_DIR true    // for Mendel set to false, for Orca set to true
 #define INVERT_Y_DIR false    // for Mendel set to true, for Orca set to false
 #define INVERT_Z_DIR true     // for Mendel set to false, for Orca set to true
+#define INVERT_W_DIR true     // for Mendel set to false, for Orca set to true
 //#define INVERT_Y_DIR true    // for Mendel set to true, for Orca set to false
 //#define INVERT_Z_DIR false     // for Mendel set to false, for Orca set to true
 #define INVERT_E0_DIR false   // for direct drive extruder v9 set to true, for geared extruder set to false
@@ -317,6 +325,7 @@ const bool Z_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
 #define X_HOME_DIR -1
 #define Y_HOME_DIR -1
 #define Z_HOME_DIR -1
+#define W_HOME_DIR -1
 
 #define min_software_endstops true // If true, axis won't move to coordinates less than HOME_POS.
 #define max_software_endstops true  // If true, axis won't move to coordinates greater than the defined lengths below.
@@ -328,12 +337,15 @@ const bool Z_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
 #define Y_MIN_POS 0
 #define Z_MAX_POS 200
 #define Z_MIN_POS 0
+#define W_MAX_POS 200
+#define W_MIN_POS 0
 
 #define X_MAX_LENGTH (X_MAX_POS - X_MIN_POS)
 #define Y_MAX_LENGTH (Y_MAX_POS - Y_MIN_POS)
 #define Z_MAX_LENGTH (Z_MAX_POS - Z_MIN_POS)
+#define W_MAX_LENGTH (W_MAX_POS - W_MIN_POS)
 //============================= Bed Auto Leveling ===========================
-
+//DONT ENABLE THIS!
 //#define ENABLE_AUTO_BED_LEVELING // Delete the comment to enable (remove // at the start of the line)
 
 #ifdef ENABLE_AUTO_BED_LEVELING
@@ -432,6 +444,7 @@ const bool Z_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
 #define MANUAL_X_HOME_POS 0
 #define MANUAL_Y_HOME_POS 0
 #define MANUAL_Z_HOME_POS 0
+#define MANUAL_W_HOME_POS 0
 //#define MANUAL_Z_HOME_POS 402 // For delta: Distance between nozzle and print surface after homing.
 
 /******************************************************************************/
@@ -451,6 +464,8 @@ const bool Z_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
 #define SCARA_ARM1_Y SCARA_AXIS_Y
 #define SCARA_ARM2_X ((X_MAX_POS - X_MIN_POS)/2 + SCARA_AXIS_SPACING/2)
 #define SCARA_ARM2_Y SCARA_AXIS_Y
+#define SCARA_ARM2_W ((W_MAX_POS - W_MIN_POS)/2 + SCARA_AXIS_SPACING/2)
+#define SCARA_ARM2_W SCARA_AXIS_Y
 
 // Cartesian movement is divided into segments at most this long (in mm)
 // before being mapped into scara coordinates.
