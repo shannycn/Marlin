@@ -37,19 +37,21 @@
 # from the commandline with "make HARDWARE_MOTHERBOARD=71" for example
 
 # This defined the board you are compiling for (see Configuration.h for the options)
-HARDWARE_MOTHERBOARD ?= 11
+HARDWARE_MOTHERBOARD ?= 33
 
 # Arduino source install directory, and version number
-ARDUINO_INSTALL_DIR  ?= /Applications/Arduino.app/Contents/Resources/Java
+#ARDUINO_INSTALL_DIR  ?= /Applications/Arduino.app/Contents/Resources/Java
+ARDUINO_INSTALL_DIR  ?= d:/tools/Arduino/
 ARDUINO_VERSION      ?= 105
 
 # You can optionally set a path to the avr-gcc tools. Requires a trailing slash. (ex: /usr/local/avr-gcc/bin)
-AVR_TOOLS_PATH ?=
+AVR_TOOLS_PATH ?=d:/tools/Arduino/hardware/tools/avr/bin/
 
 #Programmer configuration
 UPLOAD_RATE        ?= 115200
 AVRDUDE_PROGRAMMER ?= arduino
-UPLOAD_PORT        ?= /dev/arduino
+#UPLOAD_PORT        ?= /dev/arduino
+UPLOAD_PORT        ?= //./COM3
 
 #Directory used to build files in, contains all the build files, from object files to the final hex file.
 BUILD_DIR          ?= applet
@@ -66,6 +68,8 @@ WIRE               ?= 0
 # Here the Arduino variant is selected by the board type
 # HARDWARE_VARIANT = "arduino", "Sanguino", "Gen7", ...
 # MCU = "atmega1280", "Mega2560", "atmega2560", "atmega644p", ...
+#HARDWARE_VARIANT = "Sanguino"
+#MCU = "atmega2560"
 
 #Gen7
 ifeq ($(HARDWARE_MOTHERBOARD),10)

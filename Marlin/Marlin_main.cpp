@@ -28,6 +28,7 @@
  */
 
 #include "Marlin.h"
+#include <errno.h>
 
 #ifdef ENABLE_AUTO_BED_LEVELING
 #include "vector_3.h"
@@ -217,14 +218,19 @@ float volumetric_multiplier[EXTRUDERS] = {
 };
 //x,y,z position, and w angle
 float current_position[NUM_AXIS] = { 0.0, 0.0, 0.0, 0.0 };
-float current_scara_x_position = 0.0, current_scara_y_position = 0.0;
-float add_homeing[3]={0,0,0};
+float current_rotation[NUM_AXIS] = { 0.0, 0.0, 0.0, 0.0 };
+//float current_scara_x_position = 0.0, current_scara_y_position = 0.0;
+float add_homeing[NUM_AXIS]={0,0,0, 0};
 #ifdef DELTA
 float endstop_adj[3]={0,0,0};
 #endif
-float min_pos[3] = { X_MIN_POS, Y_MIN_POS, Z_MIN_POS };
-float max_pos[3] = { X_MAX_POS, Y_MAX_POS, Z_MAX_POS };
-bool axis_known_position[3] = {false, false, false};
+//float min_pos[3] = { X_MIN_POS, Y_MIN_POS, Z_MIN_POS };
+//float max_pos[3] = { X_MAX_POS, Y_MAX_POS, Z_MAX_POS };
+float min_pos[NUM_AXIS] = { X_MIN_RAD, Y_MIN_RAD, Z_MIN_POS, W_MIN_RAD };
+float max_pos[NUM_AXIS] = { X_MAX_RAD, X_MAX_RAD, Z_MAX_POS, W_MAX_RAD };
+
+
+bool axis_known_position[NUM_AXIS] = {false, false, false, false};
 float zprobe_zoffset;
 
 // Extruder offset
@@ -289,8 +295,8 @@ int EtoPPressure=0;
 //===========================================================================
 //=============================Private Variables=============================
 //===========================================================================
-const char axis_codes[NUM_AXIS] = {'X', 'Y', 'Z', 'E'};
-static float destination[NUM_AXIS] = {  0.0, 0.0, 0.0, 0.0};
+const char axis_codes[NUM_AXIS] = {'X', 'Y', 'Z', 'W'};
+static float destination[NUM_AXIS] = {  0.0, 0.0, 0.0, 0.0};    // X, Y, Z is position in mm, E is in radian
 static float offset[3] = {0.0, 0.0, 0.0};
 static bool home_all_axis = true;
 static float feedrate = 1500.0, next_feedrate, saved_feedrate;
@@ -343,6 +349,8 @@ boolean chdkActive = false;
 //===========================================================================
 //=============================Routines======================================
 //===========================================================================
+bool calculate_arm_rotation(float x, float y, float& alpha, float& beta);
+
 
 void get_arc_coordinates();
 bool setTargetedHotend(int code);
@@ -790,8 +798,8 @@ static const PROGMEM type array##_P[4] =        \
 static inline type array(int axis)          \
     { return pgm_read_any(&array##_P[axis]); }
 
-XYZW_CONSTS_FROM_CONFIG(float, base_min_pos,    MIN_POS);
-XYZW_CONSTS_FROM_CONFIG(float, base_max_pos,    MAX_POS);
+XYZW_CONSTS_FROM_CONFIG(float, base_min_pos,    MIN_RAD);
+XYZW_CONSTS_FROM_CONFIG(float, base_max_pos,    MAX_RAD);
 XYZW_CONSTS_FROM_CONFIG(float, base_home_pos,   HOME_POS);
 XYZW_CONSTS_FROM_CONFIG(float, max_length,      MAX_LENGTH);
 XYZW_CONSTS_FROM_CONFIG(float, home_retract_mm, HOME_RETRACT_MM);
@@ -1055,7 +1063,8 @@ static void homeaxis(int axis) {
 #endif
 
     current_position[axis] = 0;
-    plan_set_position(current_position[X_AXIS], current_position[Y_AXIS], current_position[Z_AXIS], current_position[W_AXIS]);
+    current_rotation[axis] = 0;
+    plan_set_position(current_rotation[X_AXIS], current_rotation[Y_AXIS], current_position[Z_AXIS], current_position[W_AXIS]);
 
 
     // Engage Servo endstop if enabled
@@ -1077,6 +1086,7 @@ static void homeaxis(int axis) {
     st_synchronize();
 
     current_position[axis] = 0;
+    current_rotation[axis] = 0;
     plan_set_position(current_position[X_AXIS], current_position[Y_AXIS], current_position[Z_AXIS], current_position[W_AXIS]);
     destination[axis] = -home_retract_mm(axis) * axis_home_dir;
     plan_buffer_line(destination[X_AXIS], destination[Y_AXIS], destination[Z_AXIS], destination[W_AXIS], feedrate/60, active_extruder);
@@ -1280,7 +1290,12 @@ void process_commands()
           plan_set_position(delta[X_AXIS], delta[Y_AXIS], delta[Z_AXIS], current_position[W_AXIS]);
 
 #else // NOT DELTA
-      home_all_axis = !((code_seen(axis_codes[X_AXIS])) || (code_seen(axis_codes[Y_AXIS])) || (code_seen(axis_codes[Z_AXIS])));
+      home_all_axis = !((code_seen(axis_codes[X_AXIS])) || (code_seen(axis_codes[Y_AXIS])) || (code_seen(axis_codes[Z_AXIS])) || (code_seen(axis_codes[W_AXIS])));
+      
+      current_rotation[X_AXIS] = 0;
+      current_rotation[Y_AXIS] = 0;
+      current_rotation[Z_AXIS] = 0;
+      current_rotation[W_AXIS] = 0;
 
       #if Z_HOME_DIR > 0                      // If homing away from BED do Z first
       if((home_all_axis) || (code_seen(axis_codes[Z_AXIS]))) {
@@ -1360,6 +1375,12 @@ void process_commands()
         }
       }
 
+      if(code_seen(axis_codes[W_AXIS])) {
+        if(code_value_long() != 0) {
+          current_position[W_AXIS]=code_value()+add_homeing[3];
+        }
+      }
+
       #if Z_HOME_DIR < 0                      // If homing towards BED do Z last
         #ifndef Z_SAFE_HOMING
           if((home_all_axis) || (code_seen(axis_codes[Z_AXIS]))) {
@@ -1372,6 +1393,7 @@ void process_commands()
             HOMEAXIS(Z);
           }
         #else                      // Z Safe mode activated.
+            //TODO need to use X_MIN_RAD replace X_MIN_POS
           if(home_all_axis) {
             destination[X_AXIS] = round(Z_SAFE_HOMING_X_POINT - X_PROBE_OFFSET_FROM_EXTRUDER);
             destination[Y_AXIS] = round(Z_SAFE_HOMING_Y_POINT - Y_PROBE_OFFSET_FROM_EXTRUDER);
@@ -1618,44 +1640,23 @@ void process_commands()
       relative_mode = true;
       break;
     case 92: // G92
-//      if(!code_seen(axis_codes[E_AXIS]))
-        st_synchronize();
-      for(int8_t i=0; i < NUM_AXIS; i++) {
-        if(code_seen(axis_codes[i])) {
-           if(i == W_AXIS) {
-             current_position[i] = code_value();
-             plan_set_w_position(current_position[W_AXIS]);
-           }
-           else {
-//             current_position[i] = code_value()+add_homeing[i];
-//             plan_set_position(current_position[X_AXIS], current_position[Y_AXIS], current_position[Z_AXIS], current_position[E_AXIS]);
-			/* If we are in raw SCARA mode, don't use the cartesian
-		   coordinates from current_position array to set the position.
-		   Instead use the stored current SCARA X and Y values. 
-		   Otherwise the cartesian coordinates will end up being
-		   copied into the SCARA axis position. */
-			if (scara_raw_mode) {
-			  if (i == X_AXIS) {
-			current_scara_x_position = code_value()+add_homeing[i];  
-			  } else if (i == Y_AXIS) {
-			current_scara_y_position = code_value()+add_homeing[i];  
-			  } else {
-			current_position[i] = code_value()+add_homeing[i];
-			  }
-			  plan_set_position(current_scara_x_position, 
-					current_scara_y_position, 
-					current_position[Z_AXIS], 
-					current_position[W_AXIS]);
-			} else {
-			  current_position[i] = code_value()+add_homeing[i];  
-			  plan_set_position(current_position[X_AXIS], 
-					current_position[Y_AXIS], 
-					current_position[Z_AXIS], 
-					current_position[W_AXIS]);
-			}
-           }
+    {
+        bool bSetXY = false;
+        for(int8_t i=0; i < NUM_AXIS; i++) {
+            if(code_seen(axis_codes[i])) {
+                current_position[i] = code_value() +add_homeing[i];
+                if (i == X_AXIS || i == Y_AXIS) {
+                    bSetXY = true;
+                }
+            }
         }
-      }
+        if (bSetXY) {
+            calculate_arm_rotation(current_position[X_AXIS], current_position[Y_AXIS],
+                current_rotation[X_AXIS], current_rotation[Y_AXIS]);
+        }
+        plan_set_position(current_rotation[X_AXIS],current_rotation[Y_AXIS], 
+                      current_position[Z_AXIS],current_position[W_AXIS]);
+    }
       break;
       case 93: // G93
         scara_raw_mode = false;
@@ -2215,6 +2216,7 @@ void process_commands()
       {
         if(code_seen(axis_codes[i]))
         {
+            /*
           if(i == 3) { // E
             float value = code_value();
             if(value < 20.0) {
@@ -2225,7 +2227,7 @@ void process_commands()
             }
             axis_steps_per_unit[i] = value;
           }
-          else {
+          else */ {
             axis_steps_per_unit[i] = code_value();
           }
         }
@@ -3206,17 +3208,30 @@ void get_arc_coordinates()
 void clamp_to_software_endstops(float target[4])
 {
   if (min_software_endstops) {
-    if (target[X_AXIS] < min_pos[X_AXIS]) target[X_AXIS] = min_pos[X_AXIS];
-    if (target[Y_AXIS] < min_pos[Y_AXIS]) target[Y_AXIS] = min_pos[Y_AXIS];
+//    if (target[X_AXIS] < min_pos[X_AXIS]) target[X_AXIS] = min_pos[X_AXIS];
+//    if (target[Y_AXIS] < min_pos[Y_AXIS]) target[Y_AXIS] = min_pos[Y_AXIS];
     if (target[Z_AXIS] < min_pos[Z_AXIS]) target[Z_AXIS] = min_pos[Z_AXIS];
     if (target[W_AXIS] < min_pos[W_AXIS]) target[W_AXIS] = min_pos[W_AXIS];
   }
 
   if (max_software_endstops) {
-    if (target[X_AXIS] > max_pos[X_AXIS]) target[X_AXIS] = max_pos[X_AXIS];
-    if (target[Y_AXIS] > max_pos[Y_AXIS]) target[Y_AXIS] = max_pos[Y_AXIS];
+//    if (target[X_AXIS] > max_pos[X_AXIS]) target[X_AXIS] = max_pos[X_AXIS];
+//    if (target[Y_AXIS] > max_pos[Y_AXIS]) target[Y_AXIS] = max_pos[Y_AXIS];
     if (target[Z_AXIS] > max_pos[Z_AXIS]) target[Z_AXIS] = max_pos[Z_AXIS];
     if (target[W_AXIS] > max_pos[W_AXIS]) target[W_AXIS] = max_pos[W_AXIS];
+  }
+}
+
+void clamp_to_software_endstops_rotation(float& alpha, float& beta)
+{
+  if (min_software_endstops) {
+    if (alpha < min_pos[X_AXIS]) alpha = min_pos[X_AXIS];
+    if (beta < min_pos[Y_AXIS]) beta = min_pos[Y_AXIS];
+  }
+
+  if (max_software_endstops) {
+    if (alpha > max_pos[X_AXIS]) alpha = max_pos[X_AXIS];
+    if (beta > max_pos[Y_AXIS]) beta = max_pos[Y_AXIS];
   }
 }
 
@@ -3272,6 +3287,8 @@ void prepare_move()
 }
 
 #ifdef SCARA_MODE
+void prepare_cartesian_move()
+{}
 /* Parallel SCARA kinematics. 
 
    The firmware's internal X and Y coordinates are the arm rotations
@@ -3306,6 +3323,7 @@ void prepare_move()
 /* Calculate the arm first segment rotation to reach the target
    point. Returns clockwise rotation away from the Y-axis in
    degrees. */
+/*
 float calculate_arm_rotation(float x, float y, int arm_num)
 {
   float rot;
@@ -3322,7 +3340,98 @@ float calculate_arm_rotation(float x, float y, int arm_num)
            ? (atan2(y, x) * 180 / M_PI + rot - 90)
            : (atan2(y, x) * 180 / M_PI - rot - 90));
 }
+*/
 
+
+/* get arm rotations,
+    alpha, output for upper arm rotation, in radian
+    beta, output for lower arm rotation, in radian */
+
+bool calculate_arm_rotation(float x, float y, float& alpha, float& beta)
+{
+#define u SCARA_SEG1_LEN
+#define l SCARA_SEG2_LEN
+#define u2 (u*u)
+#define l2 (l*l)
+
+    float r2 = (x*x + y*y);
+    float theta = atan2(y, x);
+    float phi = acos((r2+u2-l2)/(2*u*sqrt(r2)));
+    alpha = theta-phi;
+    beta = acos((r2-u2-l2)/(2*u*l));
+    return (errno != EDOM);
+#undef u
+#undef l
+#undef u2
+#undef l2
+}
+
+void prepare_scara_move()
+{
+    float difference[NUM_AXIS];
+    for (int8_t i=0; i < NUM_AXIS; i++) {
+      difference[i] = destination[i] - current_position[i];
+    }
+    
+    clamp_to_software_endstops(destination);
+
+    // if no scara move, just use linear move
+    if (fabs(difference[X_AXIS]) < 0.01 && fabs(difference[Y_AXIS]) < 0.01) {
+        plan_buffer_line(current_rotation[X_AXIS], current_rotation[Y_AXIS],
+                        current_position[Z_AXIS], current_position[W_AXIS], 
+                        feedrate*feedmultiply/60/100.0, active_extruder);
+    } else {
+        float alpha, beta;
+        // input X, Y is valid
+        if (calculate_arm_rotation(destination[X_AXIS], destination[Y_AXIS], alpha, beta)) {
+            bool need_clamp = ((max_software_endstops && (alpha>max_pos[X_AXIS] || beta>max_pos[Y_AXIS]))
+                            || (min_software_endstops && (alpha<min_pos[X_AXIS] || beta<min_pos[Y_AXIS])));
+            
+
+            float distXY = sqrt(sq(difference[X_AXIS])+sq(difference[Y_AXIS]));
+            int steps = ceil(distXY / SCARA_MOVE_APPROX_LEN);
+            if (steps < 1)
+                steps = 1;
+            //SERIAL_ECHOPGM("distXY="); SERIAL_ECHOLN(distXY);
+            //SERIAL_ECHOPGM("steps="); SERIAL_ECHOLN(steps);
+            for (int8_t i = 1; i <= steps; i++) {
+                float step_position[NUM_AXIS];
+                float step = (float)i / ((float)steps);
+                for (int j=0; j<NUM_AXIS; ++j) {
+                    step_position[j] = current_position[j] + difference[i]*step;
+                }
+                calculate_arm_rotation(step_position[X_AXIS], step_position[Y_AXIS], alpha, beta);
+                // check each alpha & beta
+                if (need_clamp) {
+                    clamp_to_software_endstops_rotation(alpha, beta);
+                }
+
+                //SERIAL_ECHOPGM("step="); SERIAL_ECHOLN(step);
+                //SERIAL_ECHOPGM("alpha="); SERIAL_ECHOLN(alpha);
+                //SERIAL_ECHOPGM("beta="); SERIAL_ECHOLN(beta);
+                //SERIAL_ECHOPGM("Z_AXIS="); SERIAL_ECHOLN(step_position[Z_AXIS]);
+                //SERIAL_ECHOPGM("W_AXIS="); SERIAL_ECHOLN(step_position[W_AXIS]);
+
+                plan_buffer_line(alpha, beta, current_position[Z_AXIS], 
+                                 current_position[W_AXIS], 
+                                 feedrate*feedmultiply/60/100.0, active_extruder);
+
+            }
+            current_rotation[X_AXIS] = alpha;
+            current_rotation[Y_AXIS] = beta;
+        } else {
+            SERIAL_ECHOPGM("INVALID X, Y!");
+            return;
+        }
+    }
+
+    for(int8_t i=0; i < NUM_AXIS; i++) {
+      current_position[i] = destination[i];
+    }
+    
+}
+
+#if 0
 /* Split the move into small segments and convert each to SCARA coordinates
    individually. Segment maximum length is defined in Configuration.h */
 void prepare_scara_move()
@@ -3376,6 +3485,7 @@ void prepare_scara_move()
   current_scara_x_position = arm1;
   current_scara_y_position = arm2;
 }
+#endif
 /******************************************************************************/
 #else
 void prepare_cartesian_move()

@@ -446,7 +446,7 @@ void check_axes_activity()
   unsigned char x_active = 0;
   unsigned char y_active = 0;  
   unsigned char z_active = 0;
-  unsigned char e_active = 0;
+  unsigned char w_active = 0;
   unsigned char tail_fan_speed = fanSpeed;
   #ifdef BARICUDA
   unsigned char tail_valve_pressure = ValvePressure;
@@ -468,14 +468,14 @@ void check_axes_activity()
       if(block->steps_x != 0) x_active++;
       if(block->steps_y != 0) y_active++;
       if(block->steps_z != 0) z_active++;
-      if(block->steps_e != 0) e_active++;
+      if(block->steps_w != 0) w_active++;
       block_index = (block_index+1) & (BLOCK_BUFFER_SIZE - 1);
     }
   }
   if((DISABLE_X) && (x_active == 0)) disable_x();
   if((DISABLE_Y) && (y_active == 0)) disable_y();
   if((DISABLE_Z) && (z_active == 0)) disable_z();
-  if((DISABLE_E) && (e_active == 0)) disable_w();
+  if((DISABLE_E) && (w_active == 0)) disable_w();
   /*
   {
     disable_e0();
@@ -670,12 +670,12 @@ block->steps_y = labs((target[X_AXIS]-position[X_AXIS]) - (target[Y_AXIS]-positi
     enable_e2(); 
     */
   }
-
+/*
   if (block->steps_e == 0)
   {
     if(feed_rate<mintravelfeedrate) feed_rate=mintravelfeedrate;
   }
-  else
+  else*/
   {
     if(feed_rate<minimumfeedrate) feed_rate=minimumfeedrate;
   } 
@@ -801,7 +801,7 @@ block->steps_y = labs((target[X_AXIS]-position[X_AXIS]) - (target[Y_AXIS]-positi
       block->acceleration_st = axis_steps_per_sqr_second[X_AXIS];
     if(((float)block->acceleration_st * (float)block->steps_y / (float)block->step_event_count) > axis_steps_per_sqr_second[Y_AXIS])
       block->acceleration_st = axis_steps_per_sqr_second[Y_AXIS];
-    if(((float)block->acceleration_st * (float)block->steps_e / (float)block->step_event_count) > axis_steps_per_sqr_second[W_AXIS])
+    if(((float)block->acceleration_st * (float)block->steps_w / (float)block->step_event_count) > axis_steps_per_sqr_second[W_AXIS])
       block->acceleration_st = axis_steps_per_sqr_second[W_AXIS];
     if(((float)block->acceleration_st * (float)block->steps_z / (float)block->step_event_count ) > axis_steps_per_sqr_second[Z_AXIS])
       block->acceleration_st = axis_steps_per_sqr_second[Z_AXIS];

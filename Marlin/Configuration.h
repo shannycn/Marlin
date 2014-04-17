@@ -11,9 +11,10 @@
 // For a Delta printer replace the configuration files with the files in the
 // example_configurations/delta directory.
 //
-
+//#define MOTHERBOARD 33
+#define ARDUINO 105
 #define SCARA_MODE
-#define SUPPORT_TEMPERATURE
+//#define SUPPORT_TEMPERATURE
 // User-specified version info of this build to display in [Pronterface, etc] terminal window during
 // startup. Implementation of an idea by Prof Braino to inform user that any changes made to this
 // build by the user have been successfully uploaded into firmware.
@@ -173,7 +174,7 @@
 
 // PID settings:
 // Comment the following line to disable PID and enable bang-bang.
-#define PIDTEMP
+//#define PIDTEMP
 #define BANG_MAX 255 // limits current to nozzle while in bang-bang mode; 255=full current
 #define PID_MAX 255 // limits current to nozzle while PID is active (see PID_FUNCTIONAL_RANGE below); 255=full current
 #ifdef PIDTEMP
@@ -242,7 +243,7 @@
 
 //this prevents dangerous Extruder moves, i.e. if the temperature is under the limit
 //can be software-disabled for whatever purposes by
-#define PREVENT_DANGEROUS_EXTRUDE
+//#define PREVENT_DANGEROUS_EXTRUDE
 //if PREVENT_DANGEROUS_EXTRUDE is on, you can still disable (uncomment) very long bits of extrusion separately.
 #define PREVENT_LENGTHY_EXTRUDE
 
@@ -331,19 +332,30 @@ const bool W_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
 #define max_software_endstops true  // If true, axis won't move to coordinates greater than the defined lengths below.
 
 // Travel limits after homing
-#define X_MAX_POS 205
+#define X_MAX_RAD 135*(PI/180)
+#define X_MIN_RAD 0.0
+#define Y_MAX_RAD 120*(PI/180)
+#define Y_MIN_RAD 0.0
+#define W_MAX_RAD 90*(PI/180)
+#define W_MIN_RAD 0.0
+/*
+#define X_MAX_POS 205	
 #define X_MIN_POS 0
 #define Y_MAX_POS 205
 #define Y_MIN_POS 0
+*/
 #define Z_MAX_POS 200
 #define Z_MIN_POS 0
-#define W_MAX_POS 200
-#define W_MIN_POS 0
+// just for macro definition
+#define Z_MAX_RAD Z_MAX_POS
+#define Z_MIN_RAD Z_MIN_POS
 
-#define X_MAX_LENGTH (X_MAX_POS - X_MIN_POS)
-#define Y_MAX_LENGTH (Y_MAX_POS - Y_MIN_POS)
+//#define X_MAX_LENGTH (X_MAX_POS - X_MIN_POS)
+//#define Y_MAX_LENGTH (Y_MAX_POS - Y_MIN_POS)
 #define Z_MAX_LENGTH (Z_MAX_POS - Z_MIN_POS)
-#define W_MAX_LENGTH (W_MAX_POS - W_MIN_POS)
+#define X_MAX_LENGTH (X_MAX_RAD - X_MIN_RAD)
+#define Y_MAX_LENGTH (Y_MAX_RAD - Y_MIN_RAD)
+#define W_MAX_LENGTH (W_MAX_RAD - W_MIN_RAD)
 //============================= Bed Auto Leveling ===========================
 //DONT ENABLE THIS!
 //#define ENABLE_AUTO_BED_LEVELING // Delete the comment to enable (remove // at the start of the line)
@@ -436,7 +448,7 @@ const bool W_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
 
 
 // The position of the homing switches
-//#define MANUAL_HOME_POSITIONS  // If defined, MANUAL_*_HOME_POS below will be used
+#define MANUAL_HOME_POSITIONS  // If defined, MANUAL_*_HOME_POS below will be used
 //#define BED_CENTER_AT_0_0  // If defined, the center of the bed is at (X=0, Y=0)
 
 //Manual homing switch locations:
@@ -450,22 +462,9 @@ const bool W_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
 /******************************************************************************/
 //// SCARA settings
 // Arm segment lengths
-#define SCARA_SEG1_LEN 100.0
-#define SCARA_SEG2_LEN 150.0
-
-// Rotation axis Y position
-#define SCARA_AXIS_Y -82.0
-
-// Arm base axis separation
-#define SCARA_AXIS_SPACING 75.0
-
-// Arm base coordinates
-#define SCARA_ARM1_X ((X_MAX_POS - X_MIN_POS)/2 - SCARA_AXIS_SPACING/2)
-#define SCARA_ARM1_Y SCARA_AXIS_Y
-#define SCARA_ARM2_X ((X_MAX_POS - X_MIN_POS)/2 + SCARA_AXIS_SPACING/2)
-#define SCARA_ARM2_Y SCARA_AXIS_Y
-#define SCARA_ARM2_W ((W_MAX_POS - W_MIN_POS)/2 + SCARA_AXIS_SPACING/2)
-#define SCARA_ARM2_W SCARA_AXIS_Y
+#define SCARA_SEG1_LEN 320.0	// upper arm
+#define SCARA_SEG2_LEN 250.0	// lower arm
+#define SCARA_SEG3_LEN 90.0		// wrist length
 
 // Cartesian movement is divided into segments at most this long (in mm)
 // before being mapped into scara coordinates.

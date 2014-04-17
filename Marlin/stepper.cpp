@@ -64,11 +64,12 @@ static char step_loops;
 static unsigned short OCR1A_nominal;
 static unsigned short step_loops_nominal;
 
-volatile long endstops_trigsteps[3]={0,0,0};
+volatile long endstops_trigsteps[NUM_AXIS]={0,0,0};
 volatile long endstops_stepsTotal,endstops_stepsDone;
 static volatile bool endstop_x_hit=false;
 static volatile bool endstop_y_hit=false;
 static volatile bool endstop_z_hit=false;
+static volatile bool endstop_w_hit=false;
 #ifdef ABORT_ON_ENDSTOP_HIT_FEATURE_ENABLED
 bool abort_on_endstop_hit = false;
 #endif
@@ -174,7 +175,7 @@ asm volatile ( \
 
 void checkHitEndstops()
 {
- if( endstop_x_hit || endstop_y_hit || endstop_z_hit) {
+ if( endstop_x_hit || endstop_y_hit || endstop_z_hit || endstop_w_hit) {
    SERIAL_ECHO_START;
    SERIAL_ECHOPGM(MSG_ENDSTOPS_HIT);
    if(endstop_x_hit) {
@@ -189,10 +190,15 @@ void checkHitEndstops()
      SERIAL_ECHOPAIR(" Z:",(float)endstops_trigsteps[Z_AXIS]/axis_steps_per_unit[Z_AXIS]);
      LCD_MESSAGEPGM(MSG_ENDSTOPS_HIT "Z");
    }
+   if(endstop_w_hit) {
+     SERIAL_ECHOPAIR(" W:",(float)endstops_trigsteps[W_AXIS]/axis_steps_per_unit[W_AXIS]);
+     LCD_MESSAGEPGM(MSG_ENDSTOPS_HIT "W");
+   }
    SERIAL_ECHOLN("");
    endstop_x_hit=false;
    endstop_y_hit=false;
    endstop_z_hit=false;
+   endstop_w_hit=false;
 #ifdef ABORT_ON_ENDSTOP_HIT_FEATURE_ENABLED
    if (abort_on_endstop_hit)
    {
@@ -212,6 +218,7 @@ void endstops_hit_on_purpose()
   endstop_x_hit=false;
   endstop_y_hit=false;
   endstop_z_hit=false;
+  endstop_w_hit=false;
 }
 
 void enable_endstops(bool check)
@@ -699,7 +706,7 @@ ISR(TIMER1_COMPA_vect)
           count_position[E_AXIS]+=count_direction[E_AXIS];
           WRITE_E_STEP(INVERT_E_STEP_PIN);
         }
-      endif
+      #endif
       #endif //!ADVANCE
       step_events_completed += 1;
       if(step_events_completed >= current_block->step_event_count) break;

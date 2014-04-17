@@ -1199,6 +1199,12 @@
 #define Z_MAX_PIN 32
 #define Z_ENABLE_PIN 35
 
+#define W_STEP_PIN 43
+#define W_DIR_PIN 45
+#define W_MIN_PIN 41
+#define W_MAX_PIN 49
+#define W_ENABLE_PIN 48
+
 #define HEATER_BED_PIN 4
 #define TEMP_BED_PIN 10
 
@@ -1210,7 +1216,7 @@
 
 #define HEATER_2_PIN -1
 #define TEMP_2_PIN -1
-
+/*
 #define E0_STEP_PIN         43
 #define E0_DIR_PIN          45
 #define E0_ENABLE_PIN       41
@@ -1218,6 +1224,14 @@
 #define E1_STEP_PIN         49
 #define E1_DIR_PIN          47
 #define E1_ENABLE_PIN       48
+*/
+#define E0_STEP_PIN         -1
+#define E0_DIR_PIN          -1
+#define E0_ENABLE_PIN       -1
+    
+#define E1_STEP_PIN         -1
+#define E1_DIR_PIN          -1
+#define E1_ENABLE_PIN       -1
 
 #define SDPOWER            -1
 #define SDSS               53

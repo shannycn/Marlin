@@ -88,14 +88,15 @@
 
 #define ENDSTOPS_ONLY_FOR_HOMING // If defined the endstops will only be used for homing
 
-
 //// AUTOSET LOCATIONS OF LIMIT SWITCHES
 //// Added by ZetaPhoenix 09-15-2012
 #ifdef MANUAL_HOME_POSITIONS  // Use manual limit switch locations
   #define X_HOME_POS MANUAL_X_HOME_POS
   #define Y_HOME_POS MANUAL_Y_HOME_POS
   #define Z_HOME_POS MANUAL_Z_HOME_POS
+  #define W_HOME_POS MANUAL_W_HOME_POS
 #else //Set min/max homing switch positions based upon homing direction and min/max travel limits
+  //// TODO SLJ 20140413 DON'T enable due to X_MAX_RAD replace X_MAX_POS
   //X axis
   #if X_HOME_DIR == -1
     #ifdef BED_CENTER_AT_0_0
@@ -213,9 +214,11 @@
 #endif //DUAL_X_CARRIAGE
 
 //homing hits the endstop, then retracts by this distance, before it tries to slowly bump again:
-#define X_HOME_RETRACT_MM 5
-#define Y_HOME_RETRACT_MM 5
+#define X_HOME_RETRACT_MM 2*(PI/180)
+#define Y_HOME_RETRACT_MM 2*(PI/180)
 #define Z_HOME_RETRACT_MM 1
+#define W_HOME_RETRACT_MM 2*(PI/180)
+
 //#define QUICK_HOME  //if this is defined, if both x and y are to be homed, a diagonal move will be performed initially.
 
 #define AXIS_RELATIVE_MODES {false, false, false, false}
@@ -227,6 +230,7 @@
 #define INVERT_Y_STEP_PIN false
 #define INVERT_Z_STEP_PIN false
 #define INVERT_E_STEP_PIN false
+#define INVERT_W_STEP_PIN false
 
 //default stepper release if idle
 #define DEFAULT_STEPPER_DEACTIVE_TIME 60

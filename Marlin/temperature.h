@@ -26,8 +26,9 @@
 #ifdef PID_ADD_EXTRUSION_RATE
   #include "stepper.h"
 #endif
-
 #ifdef SUPPORT_TEMPERATURE
+
+//#ifdef SUPPORT_TEMPERATURE
 // public functions
 void tp_init();  //initialize the heating
 void manage_heater(); //it is critical that this is called periodically.
@@ -168,10 +169,11 @@ FORCE_INLINE void autotempShutdown(){
 
 void PID_autotune(float temp, int extruder, int ncycles);
 
+
 #else
 // public functions
-void tp_init(){};  //initialize the heating
-void manage_heater(){}; //it is critical that this is called periodically.
+void tp_init();  //initialize the heating
+void manage_heater(); //it is critical that this is called periodically.
 
 
 //high level conversion routines, for use outside of temperature.cpp
@@ -205,15 +207,17 @@ FORCE_INLINE bool isCoolingHotend(uint8_t extruder) { };
 FORCE_INLINE bool isCoolingBed() {};
 
 
-int getHeaterPower(int heater){};
-void disable_heater(){};
-void setWatch(){};
-void updatePID(){};
+
+int getHeaterPower(int heater);
+void disable_heater();
+void setWatch();
+void updatePID();
 
 FORCE_INLINE void autotempShutdown(){};
 
-void PID_autotune(float temp, int extruder, int ncycles){};
+void PID_autotune(float temp, int extruder, int ncycles);
 
 #endif // SUPPORT_TEMPERATURE
+
 #endif
 
